@@ -34,7 +34,7 @@ async def get_all(session: SessionDep):
 
     query = select(NoteOrm)
     note = await session.execute(query)
-    result = note.scalar().all()
+    result = note.scalars().all()
 
     return result
 
@@ -74,3 +74,14 @@ async def delete_note(session: SessionDep, note_id: int):
     return {'msg': f'Заметка {note.title} удалена!'}
 
 
+@router.get('/{search}', summary='Получить заметки по имени', response_model=list[ResponseNote])
+async def get_one_by_title(session: SessionDep, search: str):
+
+    query = select(NoteOrm).where(NoteOrm.title.ilike(f'%{search}%'))
+    result = await session.execute(query)
+    note = result.scalars().all()
+
+    if not note:
+        raise HTTPException(status_code=404, detail='Заметка не найдена')
+
+    return note
