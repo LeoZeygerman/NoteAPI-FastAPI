@@ -10,4 +10,4 @@ async def get_session():
     async with new_session() as session:
         yield session
 
-Session = Annotated[AsyncSession, Depends(new_session)]
+SessionDep = Annotated[AsyncSession, Depends(new_session)]
