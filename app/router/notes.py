@@ -1,19 +1,32 @@
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
-from database import SessionDep
-from app.schemas import NoteCreate, ResponseNote, UpdateNote
+from app.database import SessionDep
+from app.schemas import CreateNote, ResponseNote, UpdateNote
 from app.models import NoteOrm
 
 router = APIRouter(prefix='/notes', tags=['Notes'])
 
 @router.post('/', summary='Добавить заметку', response_model=ResponseNote)
-async def create_note(session: SessionDep, note: NoteCreate):
+async def create_note(session: SessionDep, note: CreateNote):
     
     new_note = NoteOrm(title = note.title, content = note.content)
     session.add(new_note)
     await session.commit()
 
-    return {'msg': f'Заметка {note.title} успешно добавлена!'}
+    return new_note
+
+
+@router.get('/get', summary='Получить заметки по имени', response_model=list[ResponseNote])
+async def get_one_by_title(session: SessionDep, search: str):
+
+    query = select(NoteOrm).where(NoteOrm.title.ilike(f'%{search}%'))
+    result = await session.execute(query)
+    note = result.scalars().all()
+
+    if not note:
+        raise HTTPException(status_code=404, detail='Заметка не найдена')
+
+    return note
 
 
 @router.get('/{note_id}', summary='Получить одну заметку по id', response_model=ResponseNote)
@@ -55,6 +68,7 @@ async def edit_note(session: SessionDep, note_id: int, note: UpdateNote):
         db_notes.content = note.content
 
     await session.commit()
+    await session.refresh(db_notes)
     return db_notes
 
 
@@ -73,15 +87,3 @@ async def delete_note(session: SessionDep, note_id: int):
 
     return {'msg': f'Заметка {note.title} удалена!'}
 
-
-@router.get('/{search}', summary='Получить заметки по имени', response_model=list[ResponseNote])
-async def get_one_by_title(session: SessionDep, search: str):
-
-    query = select(NoteOrm).where(NoteOrm.title.ilike(f'%{search}%'))
-    result = await session.execute(query)
-    note = result.scalars().all()
-
-    if not note:
-        raise HTTPException(status_code=404, detail='Заметка не найдена')
-
-    return note
